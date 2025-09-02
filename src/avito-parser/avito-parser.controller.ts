@@ -18,6 +18,9 @@ export class AvitoParserController {
   async addKeyword(@Param('keyword') keyword: string) {
     this.logger.log(`Запрос на добавление ключевого слова: ${keyword}`);
     const newKeyword = await this.avitoParserService.addKeyword(keyword);
-    return { message: `Ключевое слово "${newKeyword.keyword}" добавлено.`, keyword: newKeyword };
+    return {
+      message: `Ключевое слово "${newKeyword.keyword}" добавлено.`,
+      keyword: newKeyword,
+    };
   }
 }
