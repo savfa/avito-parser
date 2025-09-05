@@ -5,6 +5,8 @@ import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { AvitoAdEntity } from './avito-ad.entity';
 import { AvitoKeywordEntity } from './avito-keyword.entity';
+import { Cron } from '@nestjs/schedule';
+import { TelegramService } from '../telegram/telegram.service';
 
 @Injectable()
 export class AvitoParserService {
@@ -15,7 +17,21 @@ export class AvitoParserService {
     private readonly adRepository: Repository<AvitoAdEntity>,
     @InjectRepository(AvitoKeywordEntity)
     private readonly keywordRepository: Repository<AvitoKeywordEntity>,
+    private readonly telegramService: TelegramService,
   ) {}
+
+  @Cron('*/5 * * * *') // Запуск каждые 5 минут
+  async scheduledParsing() {
+    this.logger.log('Запуск периодического парсинга Avito');
+    try {
+      const keywords = await this.getActiveKeywords();
+      for (const keywordEntity of keywords) {
+        await this.parseAvito(keywordEntity.keyword);
+      }
+    } catch (error) {
+      this.logger.error(`Ошибка при периодическом парсинге: ${error.message}`);
+    }
+  }
 
   async parseAvito(keyword: string): Promise<void> {
     this.logger.log(`Начинаем парсинг Avito по ключевому слову: ${keyword}`);
@@ -24,19 +40,23 @@ export class AvitoParserService {
       const { data } = await axios.get(url);
       const $ = cheerio.load(data);
 
-      const ads = [];
+      const ads: Partial<AvitoAdEntity>[] = [];
       $('div[data-marker="item"]').each((index, element) => {
         const title = $(element).find('h3[itemprop="name"]').text().trim();
         const price = $(element)
           .find('span[data-marker="item-price"]')
           .text()
           .trim();
-        const link =
+        const url =
           'https://www.avito.ru' +
           $(element).find('a[data-marker="item-title"]').attr('href');
+        const description = $(element)
+          .find('div[data-marker="item-specific-params"]')
+          .text()
+          .trim();
 
-        if (title && price && link) {
-          ads.push({ title, price, url: link });
+        if (title && price && url) {
+          ads.push({ title, price, url, description });
         }
       });
 
@@ -50,7 +70,9 @@ export class AvitoParserService {
           this.logger.log(
             `Новое объявление найдено и сохранено: ${ad.title} - ${ad.url}`,
           );
-          // Здесь можно добавить логику для отправки уведомления в Telegram
+
+          // Отправляем уведомление в Telegram
+          await this.telegramService.sendAdNotification(newAd as AvitoAdEntity);
         }
       }
       this.logger.log(

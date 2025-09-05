@@ -8,6 +8,7 @@ import { HostsMiddleware } from './common/middleware/hosts.middleware';
 import { AvitoParserModule } from './avito-parser/avito-parser.module';
 import { AvitoAdEntity } from './avito-parser/avito-ad.entity';
 import { AvitoKeywordEntity } from './avito-parser/avito-keyword.entity';
+import { TelegramModule } from './telegram/telegram.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AvitoKeywordEntity } from './avito-parser/avito-keyword.entity';
     }),
     ScheduleModule.forRoot(),
     AvitoParserModule,
+    TelegramModule,
   ],
   controllers: [AppController],
   providers: [AppService],
